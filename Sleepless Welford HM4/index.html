@@ -1,0 +1,380 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Sleepless Welford</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  :root { --bg:#faf8f4; --ink:#26231f; --mute:#6b655c; --line:#ddd6ca; --acc:#b5452c; --acc2:#2c6e7f; --card:#ffffff; --soft:#f3efe7;
+          --story-bg:#fff6e8; --story-line:#ecd9b8; --code-bg:#262320; --code-fg:#f0e9dc; --th:#f0ebe1; --on-acc:#ffffff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+          --bg:#1b1917; --ink:#ece6db; --mute:#a39b8e; --line:#3a352f; --acc:#e0775c; --acc2:#5fb0c4; --card:#25221f; --soft:#2d2924;
+          --story-bg:#2f2819; --story-line:#5a4a2a; --code-bg:#0f0e0d; --code-fg:#f0e9dc; --th:#302b26; --on-acc:#1b1917; color-scheme: dark; } }
+  :root[data-theme="dark"] {
+          --bg:#1b1917; --ink:#ece6db; --mute:#a39b8e; --line:#3a352f; --acc:#e0775c; --acc2:#5fb0c4; --card:#25221f; --soft:#2d2924;
+          --story-bg:#2f2819; --story-line:#5a4a2a; --code-bg:#0f0e0d; --code-fg:#f0e9dc; --th:#302b26; --on-acc:#1b1917; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); background:var(--bg); color:var(--ink); font-family: Georgia, "Times New Roman", serif; line-height:1.65; font-size:17px; }
+  main { max-width: 800px; margin: 0 auto; padding-block: 32px 70px; }
+  h1 { font-size: 34px; margin: 0 0 4px; }
+  h2 { font-size: 24px; margin-top: 50px; border-bottom: 2px solid var(--line); padding-bottom: 6px; }
+  h3 { font-size: 18px; margin-top: 28px; color: var(--acc); }
+  .sub { color: var(--mute); margin: 0 0 20px; font-size: 18px; }
+  .box { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; margin: 14px 0; }
+  .story { background: var(--story-bg); border: 1px solid var(--story-line); border-radius: 8px; padding: 14px 18px; margin: 14px 0; }
+  .eq { background: var(--soft); border-left: 4px solid var(--acc); padding: 8px 14px; margin: 10px 0; font-family: "Courier New", monospace; font-size: 15px; overflow-x:auto; white-space: pre; }
+  .eq.b { border-left-color: var(--acc2); }
+  pre { background:var(--code-bg); color:var(--code-fg); padding:14px 16px; border-radius:8px; overflow-x:auto; font-size:14px; line-height:1.5; }
+  code { font-family:"Courier New", monospace; font-size: 15px; }
+  table { display:block; overflow-x:auto; max-width:100%; border-collapse: collapse; width: 100%; font-size: 14px; margin: 10px 0; background: var(--card); }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: right; }
+  th { background:var(--th); text-align:center; }
+  td:first-child, th:first-child { text-align:center; }
+  label { margin-right: 14px; font-size: 15px; }
+  input[type=text], input[type=number] { color: var(--ink); background: var(--card); font: inherit; font-size: 15px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; }
+  input[type=text] { width: 100%; max-width: 420px; }
+  input[type=number] { width: 90px; }
+  button { font: inherit; font-size: 15px; background: var(--acc); color:var(--on-acc); border:none; border-radius:6px; padding: 8px 18px; cursor:pointer; margin-top:8px; }
+  button:hover { opacity:.88; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; }
+  .stat { flex:1 1 180px; min-width:0; background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; }
+  .stat small { color:var(--mute); display:block; line-height:1.35; }
+  .stat b { font-size:24px; }
+  canvas { width:100%; max-width: 390px; height:215px; background:var(--card); border:1px solid var(--line); border-radius:8px; }
+  .charts { display:flex; flex-wrap:wrap; gap:14px; }
+  .note { color:var(--mute); font-size:15px; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 18px; margin: 14px 0; }
+  summary { cursor: pointer; font-weight: bold; color: var(--acc2); }
+  dl { margin: 0; } dt { font-weight: bold; margin-top: 8px; } dd { margin: 0 0 4px 0; }
+  .take { border-left: 4px solid var(--acc2); padding: 4px 0 4px 14px; margin: 16px 0; }
+  .take b.h { display:block; color: var(--acc2); }
+  footer { margin-top:50px; color:var(--mute); font-size:14px; }
+</style>
+<main>
+
+<h1>Sleepless Welford</h1>
+<p class="sub">How to keep an average (and a "how scattered are the numbers?" score) up to date while new data keeps arriving, without ever re-reading the old data.</p>
+<p class="note">Homework 4 &middot; Statistics 2026</p>
+
+<div class="story">
+  <b>The idea in 30 seconds.</b><br>
+  You have seen apps that say "4.3 stars from 120 reviews". When review number 121 arrives, the app does <i>not</i> re-read all 120 old reviews. It only needs two things: the current average and how many reviews there are. It nudges the average a little toward the new review, and it is done.<br><br>
+  That trick is old and simple. <b>Welford's trick</b> does the same for the second question we usually care about: <i>how spread out are the reviews?</i> (all 5 stars? or a mix of 1s and 5s?) It keeps just <b>three numbers</b>, updates them in three lines of code, and never needs the old data again. That is why I call it "sleepless": it is always up to date, and it never needs to go back and redo anything.
+</div>
+
+<details>
+  <summary>Mini dictionary (open it if a word is new to you)</summary>
+  <dl>
+    <dt>Mean</dt><dd>The normal average: add everything up and divide by how many values there are.</dd>
+    <dt>Variance</dt><dd>A number that says how scattered the values are around their average. Small = everyone is close to the average. Big = values are all over the place.</dd>
+    <dt>SS ("sum of squares")</dt><dd>Take each value's distance from the average, square it (so negatives don't cancel positives), and add them all. Variance is just this total, divided by (how many values &minus; 1).</dd>
+    <dt>Sample</dt><dd>The few values you actually got to see, as opposed to "everything that could ever happen".</dd>
+    <dt>Estimate</dt><dd>A guess about the real world made from a sample.</dd>
+  </dl>
+</details>
+
+<!-- ===================== EXERCISE 1 ===================== -->
+<h2>Exercise 1 - Welford's trick</h2>
+
+<h3>Part A: updating the average (Knuth's version)</h3>
+<p>Suppose after 3 exam grades the class average is 4, and a 4th grade of 8 arrives. The new grade is 4 points above the old average, and it is one of 4 grades now, so it pulls the average up by 1/4 of that gap:</p>
+<div class="eq b">new average = old average + (new value - old average) / k
+
+example: 4 + (8 - 4) / 4 = 5</div>
+<p>In words: <b>move the average toward the new value by a share of 1/k of the gap</b>. The more values you already have, the less a new one can move the average. That is exactly how you would expect it to behave.</p>
+
+<h3>Part B: updating the spread (Welford's contribution)</h3>
+<p>Spread is measured by SS (the total of the squared distances from the average). The surprise is that it also has a tiny update rule:</p>
+<div class="eq b">new SS = old SS + (gap before the update) x (gap after the update)
+
+gap before = new value - old average
+gap after  = new value - new average</div>
+<p>Why does it work? The short version: when a new value arrives the average itself moves, which changes every old distance a little. Careful bookkeeping shows all those small changes add up to exactly the product above. If you want to see that bookkeeping, it is in the box below. If not, just trust it and look at the example after it, then try the calculator.</p>
+
+<details>
+  <summary>Show me the math (optional)</summary>
+  <p>Call <code>M<sub>k</sub></code> the average of the first k values and <code>d = x<sub>k</sub> - M<sub>k-1</sub></code> the "gap before". From Part A: <code>M<sub>k</sub> - M<sub>k-1</sub> = d/k</code>.</p>
+  <p>We want <code>SS<sub>k</sub> = &Sigma; (x<sub>i</sub> - M<sub>k</sub>)&sup2;</code>. Rewrite every distance using the <i>old</i> average:</p>
+  <div class="eq">x_i - M_k = (x_i - M_(k-1)) - d/k</div>
+  <p><b>Old values (i &le; k-1).</b> When we square and add, the middle term contains &Sigma;(x<sub>i</sub> - M<sub>k-1</sub>), which is zero (distances to an average always cancel out). What remains:</p>
+  <div class="eq">SS_(k-1) + (k-1) * d^2 / k^2</div>
+  <p><b>The new value (i = k).</b> Its distance to the new average is <code>d - d/k = d(k-1)/k</code>, so its square is:</p>
+  <div class="eq">d^2 * (k-1)^2 / k^2</div>
+  <p><b>Add both parts:</b></p>
+  <div class="eq">SS_k = SS_(k-1) + (k-1) * d^2 / k</div>
+  <p>And since the "gap after" is <code>x<sub>k</sub> - M<sub>k</sub> = d(k-1)/k</code>, we get <code>d &middot; (x<sub>k</sub> - M<sub>k</sub>) = (k-1)d&sup2;/k</code>, which is the same thing:</p>
+  <div class="eq b">SS_k = SS_(k-1) + (x_k - M_(k-1)) * (x_k - M_k)</div>
+  <p>Both gaps point in the same direction, so SS never goes down. Good: spread can only grow when you add data.</p>
+</details>
+
+<h3>Part C: from SS to variance</h3>
+<div class="eq b">variance = SS / (k - 1)        (needs at least 2 values)</div>
+<p><b>Why k-1 and not k?</b> We measure distances from the sample's own average, and that average always sits "in the middle of" the data we have, so the distances come out a little too small. Dividing by one less than the count fixes that exactly (the experiment below shows it working). Dividing by k would make the guess too low on average.</p>
+<p>The same thing can be written to update the variance directly: <code>new variance = ((k-2) &times; old variance + gap before &times; gap after) / (k-1)</code>.</p>
+
+<h3>A tiny worked example</h3>
+<p>Values arrive one by one: <b>2, 4, 9</b>.</p>
+<table>
+  <thead><tr><th>step</th><th>new value</th><th>gap before</th><th>average after</th><th>gap after</th><th>SS</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>2</td><td>2 &minus; 0 = 2</td><td>2</td><td>0</td><td>0 + 2&times;0 = 0</td></tr>
+    <tr><td>2</td><td>4</td><td>4 &minus; 2 = 2</td><td>3</td><td>1</td><td>0 + 2&times;1 = 2</td></tr>
+    <tr><td>3</td><td>9</td><td>9 &minus; 3 = 6</td><td>5</td><td>4</td><td>2 + 6&times;4 = 26</td></tr>
+  </tbody>
+</table>
+<p>Final answer: average = 5, variance = 26 / (3 &minus; 1) = 13. Check the slow way: distances are 3, 1, 4, squares are 9 + 1 + 16 = 26. Same.</p>
+
+<h3>The code (three lines)</h3>
+<pre><code>function push(s, x) {
+  const d = x - s.mean;          // 1) how far is the new value from the current average?
+  s.mean += d / ++s.k;           // 2) count it, then nudge the average toward it
+  s.SS   += d * (x - s.mean);    // 3) update the spread: gap before x gap after
+}
+// start with s = {k:0, mean:0, SS:0}.  variance = s.SS / (s.k - 1)</code></pre>
+<p class="note">Order matters: line 1 uses the <i>old</i> average, line 3 uses the <i>new</i> one (updated in line 2). Memory used: three numbers, no matter how much data goes through.</p>
+
+<h3>Try it yourself</h3>
+<div class="box">
+  <label>Type some numbers, separated by commas:</label><br>
+  <input type="text" id="ex1in" value="7, 3, 9, 0, 5, 10, 2">
+  <button onclick="runEx1()">Run it</button>
+  <table id="ex1tab"><thead><tr><th>values so far (k)</th><th>new value</th><th>average so far</th><th>SS (total squared distance)</th><th>variance (spread)</th></tr></thead><tbody></tbody></table>
+  <div id="ex1check" class="note"></div>
+</div>
+
+<!-- ===================== EXERCISE 2 ===================== -->
+<h2>Exercise 2 - A crowd of hackers</h2>
+
+<div class="story">
+  <b>The story.</b> Imagine <b>m hackers</b>. Each one tries to break into <b>n different systems</b>, and every attempt gets a score from 0 to 10. So each hacker ends up with their own list of n scores.<br><br>
+  Each hacker then does what a real scientist does: looks only at <i>their own</i> list and computes an average and a spread (using Welford). Nobody knows the "true" numbers behind the scores, so each hacker is making a guess. <b>The big question: are these guesses any good?</b> Since we are running a simulation, we <i>do</i> know the truth, so we can check.
+</div>
+
+<h3>Where the scores come from</h3>
+<p>I chose a simple rule: a system has 10 checks, and the hacker passes each check with probability 30%. The score is how many checks they passed (this is called a <b>Binomial(10, 0.3)</b> distribution). So scores are usually low (around 3), and high scores like 8 or 9 are rare.</p>
+<div class="row">
+  <div class="stat"><small>The true average of a score (called &mu;, "mu")</small><b id="thMu">-</b></div>
+  <div class="stat"><small>The true spread of a score (called &sigma;&sup2;, "sigma squared")</small><b id="thVar">-</b></div>
+</div>
+<p class="note">These come from the rule: &mu; = 10 &times; 0.3, and &sigma;&sup2; = 10 &times; 0.3 &times; 0.7.</p>
+
+<h3>Run the experiment</h3>
+<div class="box">
+  <label>n = systems per hacker <input type="number" id="n" value="30" min="2" max="5000"></label>
+  <label>m = number of hackers <input type="number" id="m" value="1000" min="2" max="20000"></label>
+  <label>seed <input type="number" id="seed" value="2026"></label><br>
+  <button onclick="runEx2()">Run experiment</button>
+  <p class="note" style="margin-bottom:0">The seed just fixes the "random" numbers, so you get the same result every time you run it.</p>
+</div>
+
+<div class="row">
+  <div class="stat"><small>Average of all the hackers' averages</small><b id="avgMean">-</b><small id="avgMeanT"></small></div>
+  <div class="stat"><small>Average of all the hackers' variances</small><b id="avgVar">-</b><small id="avgVarT"></small></div>
+  <div class="stat"><small>How much the hackers' averages differ from each other</small><b id="sdMean">-</b><small id="sdMeanT"></small></div>
+  <div class="stat"><small>How much the hackers' variances differ from each other</small><b id="sdVar">-</b><small id="sdVarT"></small></div>
+</div>
+
+<div class="charts" style="margin-top:14px">
+  <canvas id="c1" width="780" height="430"></canvas>
+  <canvas id="c2" width="780" height="430"></canvas>
+</div>
+<p class="note">Each bar counts hackers. Left: the average each hacker got. Right: the spread each hacker got. The dashed black line marks the truth. Most hackers land near it, and a few miss in both directions.</p>
+
+<h3>What if each hacker tries more systems?</h3>
+<p>Same crowd size, but now we change n and watch what happens. The "theory" columns are what the math predicts, so you can see that the simulation agrees with it.</p>
+<div class="box">
+  <button onclick="runTable()">Compare n = 5, 10, 30, 100, 300, 1000</button>
+  <table id="ntab"><thead><tr><th>n</th><th>average of averages</th><th>average of variances</th><th>differences between hackers' averages</th><th>theory predicts</th><th>differences between hackers' variances</th><th>theory predicts</th></tr></thead><tbody></tbody></table>
+  <canvas id="c3" width="780" height="430" style="max-width:100%"></canvas>
+  <p class="note">How much the hackers disagree with each other (up = more disagreement), as n grows (to the right). Both scales are logarithmic. Solid line = simulation, dashed = theory. Red = averages, blue = variances. Both lines go down together.</p>
+</div>
+
+<h2>What did we learn?</h2>
+
+<div class="take"><b class="h">1. A hacker's guess is fair.</b>
+  Look at "average of all the hackers' averages": it lands very close to the true 3, and the average of the variances lands very close to the true 2.1, even when each hacker only tried 5 systems. Individual hackers can be off, but they are not off in a <i>consistent direction</i>: some guess too high, some too low, and it balances out. Statisticians call this <b>unbiased</b>. This is also why we divide by k&minus;1 for the variance: dividing by k would make the guesses too small on average.</div>
+
+<div class="take"><b class="h">2. Why this matters in real life.</b>
+  In real life there is <i>one</i> hacker (one sample), and the true numbers are unknown. This experiment shows that using that one sample to guess the average and the spread is a sound move: the guess is not tilted in any direction. It is the same logic behind polls ("we asked 1000 people") and clinical trials. And thanks to Welford, the guess can be updated live as each new answer arrives.</div>
+
+<div class="take"><b class="h">3. More systems per hacker means more agreement.</b>
+  Compare the rows of the table: as n grows, the hackers' guesses become more similar to each other and closer to the truth, and the histograms get narrower. The rule of thumb: to cut the disagreement by 10 times you need 100 times more data (it shrinks like 1 over the square root of n). So the first few data points help a lot, and later ones help less and less.</div>
+
+<div class="take"><b class="h">4. The spread is harder to guess than the average.</b>
+  Compare the two columns: with the same n, the variance guesses differ more from each other (in relative terms) than the average guesses do. Guessing "how scattered things are" needs more data than guessing "where the middle is", because it depends on rare extreme values.</div>
+
+<div class="take"><b class="h">5. Two different knobs.</b>
+  <b>n</b> (systems per hacker) makes <i>each hacker's</i> guess better. <b>m</b> (number of hackers) does not improve any single hacker; it only makes our picture of "how guesses behave" clearer and smoother. Try changing each one and see.</div>
+
+<footer>Sleepless Welford &middot; Homework 4 &middot; Statistics 2026 &middot; plain JavaScript, no libraries.</footer>
+</main>
+
+<script>
+// ============================================================
+// CORE (also tested with node)  //<core>
+// ============================================================
+function push(s, x) {
+  const d = x - s.mean;
+  s.mean += d / ++s.k;
+  s.SS   += d * (x - s.mean);
+}
+
+function mulberry32(a) {            // small seeded random generator
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+const N_TRIALS = 10, P = 0.3;       // score ~ Binomial(10, 0.3)
+function binomPmf() {
+  const pmf = [];
+  let c = 1;                         // binomial coefficient
+  for (let k = 0; k <= N_TRIALS; k++) {
+    if (k > 0) c = c * (N_TRIALS - k + 1) / k;
+    pmf.push(c * Math.pow(P, k) * Math.pow(1 - P, N_TRIALS - k));
+  }
+  return pmf;
+}
+const PMF = binomPmf();
+const CDF = []; PMF.reduce((a, p, i) => (CDF[i] = a + p), 0);
+const MU = PMF.reduce((a, p, k) => a + k * p, 0);
+const SIGMA2 = PMF.reduce((a, p, k) => a + p * (k - MU) ** 2, 0);
+const MU4 = PMF.reduce((a, p, k) => a + p * (k - MU) ** 4, 0);
+
+function drawScore(rand) {           // inverse-cdf sampling
+  const u = rand();
+  for (let k = 0; k <= N_TRIALS; k++) if (u < CDF[k]) return k;
+  return N_TRIALS;
+}
+
+function experiment(n, m, seed) {
+  const rand = mulberry32(seed + n * 7919);
+  const means = new Array(m), vars = new Array(m);
+  for (let j = 0; j < m; j++) {
+    const s = { k: 0, mean: 0, SS: 0 };
+    for (let i = 0; i < n; i++) push(s, drawScore(rand));
+    means[j] = s.mean;
+    vars[j] = s.SS / (n - 1);
+  }
+  return { means, vars };
+}
+
+const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+const sd = a => { const mu = avg(a); return Math.sqrt(a.reduce((x, y) => x + (y - mu) ** 2, 0) / (a.length - 1)); };
+const theorySdMean = n => Math.sqrt(SIGMA2 / n);
+const theorySdVar = n => Math.sqrt((MU4 - SIGMA2 ** 2 * (n - 3) / (n - 1)) / n);
+// //</core>
+
+// ============================================================
+// PAGE CODE
+// ============================================================
+const f = (x, d = 4) => x.toFixed(d);
+const tok = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $ = id => document.getElementById(id);
+
+function runEx1() {
+  const xs = $('ex1in').value.split(/[\s,;]+/).filter(t => t !== '').map(Number).filter(v => !isNaN(v));
+  const body = document.querySelector('#ex1tab tbody');
+  body.innerHTML = '';
+  const s = { k: 0, mean: 0, SS: 0 };
+  xs.forEach(x => {
+    push(s, x);
+    const v = s.k > 1 ? f(s.SS / (s.k - 1), 4) : '-';
+    body.innerHTML += `<tr><td>${s.k}</td><td>${x}</td><td>${f(s.mean)}</td><td>${f(s.SS)}</td><td>${v}</td></tr>`;
+  });
+  if (xs.length > 1) {
+    const m = avg(xs);
+    const ss = xs.reduce((a, x) => a + (x - m) ** 2, 0);
+    $('ex1check').textContent = `Double-check the slow way (all numbers at once): average = ${f(m)}, SS = ${f(ss)}, variance = ${f(ss / (xs.length - 1))}. Same as the last row, so the three-line trick works.`;
+  } else $('ex1check').textContent = '';
+}
+
+function histogram(canvasId, data, target, title, color) {
+  const cv = $(canvasId), g = cv.getContext('2d'), W = cv.width, H = cv.height;
+  g.clearRect(0, 0, W, H);
+  const lo = Math.min(...data, target), hi = Math.max(...data, target);
+  const bins = 24, w = (hi - lo) / bins || 1, cnt = new Array(bins).fill(0);
+  data.forEach(v => cnt[Math.min(bins - 1, Math.floor((v - lo) / w))]++);
+  const mx = Math.max(...cnt), padL = 30, padB = 40, padT = 34, bw = (W - padL - 10) / bins;
+  g.fillStyle = color;
+  cnt.forEach((c, i) => {
+    const h = (c / mx) * (H - padB - padT);
+    g.fillRect(padL + i * bw + 1, H - padB - h, bw - 2, h);
+  });
+  g.strokeStyle = tok('--mute'); g.beginPath(); g.moveTo(padL, H - padB); g.lineTo(W - 10, H - padB); g.stroke();
+  const tx = padL + ((target - lo) / (hi - lo || 1)) * (W - padL - 10);
+  g.setLineDash([8, 6]); g.strokeStyle = tok('--ink'); g.lineWidth = 2;
+  g.beginPath(); g.moveTo(tx, padT - 6); g.lineTo(tx, H - padB); g.stroke();
+  g.setLineDash([]); g.lineWidth = 1;
+  g.fillStyle = tok('--ink'); g.font = '22px Georgia';
+  g.fillText(title, padL, 22);
+  g.font = '17px Georgia';
+  g.fillText(f(lo, 2), padL, H - 14);
+  const hs = f(hi, 2); g.fillText(hs, W - 10 - g.measureText(hs).width, H - 14);
+}
+
+function runEx2() {
+  const n = Math.max(2, +$('n').value | 0), m = Math.max(2, +$('m').value | 0), seed = +$('seed').value | 0;
+  const r = experiment(n, m, seed);
+  $('avgMean').textContent = f(avg(r.means));
+  $('avgMeanT').textContent = `the truth: ${f(MU)}`;
+  $('avgVar').textContent = f(avg(r.vars));
+  $('avgVarT').textContent = `the truth: ${f(SIGMA2)}`;
+  $('sdMean').textContent = f(sd(r.means));
+  $('sdMeanT').textContent = `theory predicts ${f(theorySdMean(n))}`;
+  $('sdVar').textContent = f(sd(r.vars));
+  $('sdVarT').textContent = `theory predicts ${f(theorySdVar(n))}`;
+  histogram('c1', r.means, MU, `hackers' averages (n=${n}, m=${m})`, tok('--acc'));
+  histogram('c2', r.vars, SIGMA2, `hackers' variances (n=${n}, m=${m})`, tok('--acc2'));
+}
+
+function logChart(ns, e1, t1, e2, t2) {
+  const cv = $('c3'), g = cv.getContext('2d'), W = cv.width, H = cv.height;
+  g.clearRect(0, 0, W, H);
+  const padL = 70, padB = 44, padT = 16, padR = 20;
+  const all = [...e1, ...t1, ...e2, ...t2].map(Math.log10);
+  const ylo = Math.min(...all) - 0.1, yhi = Math.max(...all) + 0.1;
+  const xlo = Math.log10(ns[0]), xhi = Math.log10(ns[ns.length - 1]);
+  const X = n => padL + (Math.log10(n) - xlo) / (xhi - xlo) * (W - padL - padR);
+  const Y = v => H - padB - (Math.log10(v) - ylo) / (yhi - ylo) * (H - padB - padT);
+  g.strokeStyle = tok('--mute'); g.beginPath(); g.moveTo(padL, padT); g.lineTo(padL, H - padB); g.lineTo(W - padR, H - padB); g.stroke();
+  g.fillStyle = tok('--ink'); g.font = '17px Georgia';
+  ns.forEach(n => g.fillText(n, X(n) - 10, H - 20));
+  for (let e = Math.ceil(ylo); e <= Math.floor(yhi); e++) g.fillText(Math.pow(10, e), 8, Y(Math.pow(10, e)) + 5);
+  const line = (arr, col, dash) => {
+    g.strokeStyle = col; g.lineWidth = 2.5; g.setLineDash(dash ? [8, 6] : []);
+    g.beginPath(); arr.forEach((v, i) => i ? g.lineTo(X(ns[i]), Y(v)) : g.moveTo(X(ns[i]), Y(v))); g.stroke();
+    g.setLineDash([]);
+    if (!dash) { g.fillStyle = col; arr.forEach((v, i) => { g.beginPath(); g.arc(X(ns[i]), Y(v), 4, 0, 7); g.fill(); }); }
+  };
+  line(t1, tok('--acc'), true); line(e1, tok('--acc'), false);
+  line(t2, tok('--acc2'), true); line(e2, tok('--acc2'), false);
+}
+
+function runTable() {
+  const m = Math.max(2, +$('m').value | 0), seed = +$('seed').value | 0;
+  const ns = [5, 10, 30, 100, 300, 1000];
+  const body = document.querySelector('#ntab tbody'); body.innerHTML = '';
+  const e1 = [], t1 = [], e2 = [], t2 = [];
+  ns.forEach(n => {
+    const r = experiment(n, m, seed);
+    const a = sd(r.means), b = sd(r.vars);
+    e1.push(a); t1.push(theorySdMean(n)); e2.push(b); t2.push(theorySdVar(n));
+    body.innerHTML += `<tr><td>${n}</td><td>${f(avg(r.means))}</td><td>${f(avg(r.vars))}</td><td>${f(a)}</td><td>${f(theorySdMean(n))}</td><td>${f(b)}</td><td>${f(theorySdVar(n))}</td></tr>`;
+  });
+  logChart(ns, e1, t1, e2, t2);
+}
+
+$('thMu').textContent = f(MU, 2);
+$('thVar').textContent = f(SIGMA2, 2);
+runEx1(); runEx2(); runTable();
+// redraw the charts when the theme changes
+try {
+  const redraw = () => { runEx2(); runTable(); };
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw);
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+} catch (e) {}
+
+</script>
+
+</body></html>
