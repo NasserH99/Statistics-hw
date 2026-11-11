@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homework 5 – Riemann vs Lebesgue and the Normal CDF</title>
+<style>
+  :root { --bg:#fafaf7; --fg:#222; --muted:#666; --line:#d8d6cf; --a:#1f5fa8; --b:#c2571a; --card:#fff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 Georgia, "Times New Roman", serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 1.9rem; margin: .2em 0 .1em; }
+  h2 { margin-top: 2.2em; border-bottom: 2px solid var(--line); padding-bottom: .2em; }
+  h3 { margin-top: 1.6em; }
+  .sub { color: var(--muted); margin-top: 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 14px 0; }
+  .formula { text-align:center; font-family: "Cambria Math", Georgia, serif; font-size: 1.1rem; margin: .8em 0; overflow-x:auto; }
+  table { border-collapse: collapse; width: 100%; font: 14px/1.4 system-ui, sans-serif; margin: 10px 0; }
+  th, td { border: 1px solid var(--line); padding: 5px 8px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  th { background: #efede6; }
+  .tablewrap { overflow-x: auto; }
+  canvas { width: 100%; max-width: 860px; height: auto; background: #fff; border: 1px solid var(--line); border-radius: 6px; display:block; margin: 8px 0; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:end; font: 14px system-ui, sans-serif; }
+  .controls label { display:flex; flex-direction:column; gap:3px; }
+  select, input { font: inherit; padding: 5px 7px; border:1px solid var(--line); border-radius: 5px; }
+  button { font: 14px system-ui, sans-serif; padding: 7px 14px; border: 0; border-radius: 6px; background: var(--a); color:#fff; cursor:pointer; }
+  button:hover { filter: brightness(1.1); }
+  .small { font-size: .88rem; color: var(--muted); }
+  .good { color: #1a7a3a; } .bad { color:#b3261e; }
+  code { background:#efede6; padding:1px 5px; border-radius:3px; font-size:.92em; }
+  .legend span { display:inline-block; margin-right:14px; font: 13px system-ui, sans-serif; }
+  .legend i { display:inline-block; width:12px; height:12px; vertical-align:-1px; margin-right:5px; }
+  .two { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 700px) { .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Homework 5 – Integration and the Normal CDF</h1>
+<p class="sub">Exercise 1: Riemann vs Lebesgue integration &nbsp;·&nbsp; Exercise 2: numerical computation of the standard normal CDF</p>
+
+<!-- ============================================================ EXERCISE 1 -->
+<h2>Exercise 1 – Riemann and Lebesgue integration</h2>
+
+<h3>1.1 The two ideas</h3>
+<div class="two">
+  <div class="card">
+    <b>Riemann</b>: cut the <u>domain</u> [a, b] into N small intervals of width Δx and add the rectangles.
+    <div class="formula">S<sub>N</sub> = Σ f(x<sub>i</sub>*) · Δx</div>
+    I use the <i>midpoint</i> rule: x<sub>i</sub>* is the middle of each interval. Cost: N evaluations of f.
+  </div>
+  <div class="card">
+    <b>Lebesgue</b>: cut the <u>range</u> of f into B bins [y<sub>j</sub>, y<sub>j+1</sub>) and measure how big the set of x where f falls in that bin is.
+    <div class="formula">∫ f ≈ Σ y<sub>j</sub>* · μ( f<sup>−1</sup>[y<sub>j</sub>, y<sub>j+1</sub>) )</div>
+    The preimage measure μ is <i>estimated</i>: I take M equally spaced points of the domain and count which fraction falls in each bin. Cost: M evaluations of f plus B counters.
+  </div>
+</div>
+<p class="small">Important honesty note: counting grid points to get the measure of a preimage is only an approximation of the Lebesgue idea, it is not a real measure-theoretic construction.
+That is exactly why it fails on the Dirichlet function (section 1.4).</p>
+
+<h3>1.2 Try it: one function at a time</h3>
+<div class="card">
+  <div class="controls">
+    <label>Function <select id="fsel"></select></label>
+    <label>N (Riemann intervals) <input id="inN" type="number" value="20" min="2" max="200000"></label>
+    <label>B (range bins) <input id="inB" type="number" value="8" min="2" max="200000"></label>
+    <label>M (Lebesgue samples) <input id="inM" type="number" value="2000" min="10" max="2000000"></label>
+    <button id="btnOne">Compute</button>
+  </div>
+  <div class="tablewrap"><table id="oneTable"></table></div>
+  <div class="two">
+    <div><b>Riemann: slices of the domain</b><canvas id="cvR" width="430" height="300"></canvas></div>
+    <div><b>Lebesgue: layers of the range</b><canvas id="cvL" width="430" height="300"></canvas></div>
+  </div>
+  <p class="small">Left: each blue rectangle is one subinterval. Right: each horizontal layer is one range bin; it is drawn over the x-values where f reaches that height (the preimage). Only the first few N / B are drawn so the picture stays readable.</p>
+</div>
+
+<h3>1.3 All functions together</h3>
+<div class="card">
+  <div class="controls">
+    <label>N = M = <input id="inAll" type="number" value="1000" min="10" max="200000"></label>
+    <label>B = <input id="inAllB" type="number" value="1000" min="2" max="200000"></label>
+    <button id="btnAll">Compute table</button>
+  </div>
+  <div class="tablewrap"><table id="allTable"></table></div>
+  <p class="small">For each function both methods get the same number of function evaluations (N = M), so the comparison is fair.</p>
+</div>
+
+<h3>1.4 Convergence and cost</h3>
+<div class="card">
+  <div class="controls">
+    <label>Function <select id="fsel2"></select></label>
+    <button id="btnConv">Run convergence test</button>
+  </div>
+  <p class="small">N = M = 10, 30, 100, …, 100000 and B = N. Error = |numerical − exact|. Times are measured in your browser (they change from device to device).</p>
+  <canvas id="cvConv" width="860" height="360"></canvas>
+  <div class="legend"><span><i style="background:#1f5fa8"></i>Riemann error</span><span><i style="background:#c2571a"></i>Lebesgue-style error</span><span><i style="background:#aaa"></i>reference slopes 1/N and 1/N²</span></div>
+  <div class="tablewrap"><table id="convTable"></table></div>
+</div>
+
+<h3>1.5 Pathological functions</h3>
+<div class="card">
+  <p><b>Dirichlet</b> &nbsp; f(x) = 1 if x is rational, 0 if irrational.
+  In every subinterval there are both rationals and irrationals, so every lower sum is 0 and every upper sum is 1: <b>not Riemann-integrable</b>.
+  The rationals are countable, so they have measure 0 and the Lebesgue integral is 1·0 + 0·1 = <b>0</b>.</p>
+  <p><b>Thomae</b> &nbsp; f(p/q) = 1/q (lowest terms), f = 0 on irrationals.
+  It is discontinuous only on the rationals (a set of measure 0), so it is <b>Riemann-integrable with integral 0</b>, and also Lebesgue-integrable with integral 0.</p>
+  <div class="controls"><button id="btnPath">Run the experiment</button></div>
+  <div class="tablewrap"><table id="pathTable"></table></div>
+  <div id="pathNote" class="small"></div>
+</div>
+
+<h3>1.6 Observations for Exercise 1</h3>
+<div class="card" id="obs1">
+  <ul>
+    <li><b>Same limit.</b> For Riemann-integrable functions both approaches converge to the same number (see the table in 1.3 and the convergence plot).</li>
+    <li><b>Accuracy.</b> For smooth functions the midpoint rule is much better: its error goes like 1/N². The range-bin approach has two error sources, the bin width and the counting error of the preimage measure, so it is slower and irregular (the orange curve in 1.4 is bumpy); in my runs it is 2–3 orders of magnitude worse than Riemann for the same number of evaluations.</li>
+    <li><b>Step functions.</b> Both give the exact answer. For the Lebesgue-style method this happens because the preimages are whole intervals and the two bin errors (+w/2 on the low value, −w/2 on the high value) cancel for the 50/50 split. It is a coincidence of this example, not a general rule.</li>
+    <li><b>Unbounded function 1/√x.</b> Both are slow (error ≈ 1/√N), because the function blows up near 0 and no finite grid sees the spike. The Lebesgue view is the natural one here (the spike has small measure) but the grid-count estimate does not exploit that.</li>
+    <li><b>Cost.</b> Riemann: N evaluations, one sum. Lebesgue-style: M evaluations, plus finding min/max, plus binning, so it is slower per evaluation, and it needs a way to measure preimages, which is the hard part in general.</li>
+    <li><b>Pathological.</b> Here the two ideas really differ. Dirichlet: Riemann sums depend on the tags (1 or 0), Lebesgue gives 0. Thomae: both give 0.
+    On a computer every float is a rational number, so a "rational/irrational" test on a grid always answers "rational": a program cannot see that the rationals have measure 0.</li>
+  </ul>
+</div>
+
+<!-- ============================================================ EXERCISE 2 -->
+<h2>Exercise 2 – Numerical computation of the normal CDF</h2>
+
+<h3>2.1 Mathematics</h3>
+<div class="card">
+  The standard normal CDF is
+  <div class="formula">Φ(x) = (1/√(2π)) ∫<sub>−∞</sub><sup>x</sup> e<sup>−t²/2</sup> dt</div>
+  <b>Why no elementary formula? (Liouville).</b> Liouville's theorem says: if f and g are rational functions, then ∫ f(t)·e<sup>g(t)</sup> dt is an elementary function if and only if there is a <i>rational</i> function h with
+  <div class="formula">h′ + g′·h = f.</div>
+  Here f = 1 and g = −t²/2, so g′ = −t and we would need h′ − t·h = 1.
+  <ul>
+    <li>If h is a polynomial of degree d, then t·h has degree d+1 while h′ has degree d−1, so h′ − t·h has degree d+1 ≥ 1 and cannot be the constant 1.</li>
+    <li>If h has a pole of order k ≥ 1 at some point c, then h′ has a pole of order k+1 and t·h has a pole of order at most k, so the pole of h′ cannot be cancelled.</li>
+  </ul>
+  So no rational h exists and e<sup>−t²/2</sup> has no elementary antiderivative. The function Φ is perfectly well defined, it just cannot be written with polynomials, exp, log, sin, … in finite form.
+  <p><b>Special function.</b> We give the missing function a name, the error function:</p>
+  <div class="formula">erf(z) = (2/√π) ∫<sub>0</sub><sup>z</sup> e<sup>−t²</sup> dt &nbsp; ⇒ &nbsp; Φ(x) = ½ [ 1 + erf( x/√2 ) ]</div>
+  This is an exact analytic representation, but it only moves the problem: to get a number we still need an algorithm for erf (integration, series, approximation).
+  Also, by symmetry Φ(−x) = 1 − Φ(x), and Φ(x) = ½ + ∫<sub>0</sub><sup>x</sup> φ(t) dt, so I only need a finite integral over [0, |x|], with no arbitrary cut-off at −∞.
+</div>
+
+<h3>2.2 Methods implemented</h3>
+<div class="card">
+  <ol>
+    <li><b>Trapezoid</b> rule on [0, |x|] with n subintervals (error ~ 1/n²).</li>
+    <li><b>Simpson</b> rule on [0, |x|] with n subintervals (error ~ 1/n⁴).</li>
+    <li><b>erf Maclaurin series</b>: erf(z) = (2/√π) Σ (−1)<sup>k</sup> z<sup>2k+1</sup> / (k!(2k+1)), with z = x/√2. Signs alternate, so for large |x| big terms cancel and precision is lost.</li>
+    <li><b>Direct series without alternating signs</b>: Φ(x) = ½ + φ(x)·( x + x³/3 + x⁵/(3·5) + x⁷/(3·5·7) + … ). All terms have the same sign, so no cancellation, and the terms are built by one multiplication each. This is the method I call "efficient".</li>
+    <li><b>Fast erf approximation</b> (Abramowitz &amp; Stegun 7.1.26): a degree-5 polynomial in t = 1/(1+0.3275911·z) times e<sup>−z²</sup>; guaranteed error ≤ 1.5·10⁻⁷, constant cost, but it cannot be made more accurate.</li>
+  </ol>
+</div>
+
+<h3>2.3 Calculator</h3>
+<div class="card">
+  <div class="controls">
+    <label>x <input id="inX" type="number" value="1.96" step="0.01"></label>
+    <label>n (trapezoid / Simpson) <input id="inNQ" type="number" value="40" min="2" max="1000000"></label>
+    <label>erf series terms <input id="inT" type="number" value="25" min="1" max="500"></label>
+    <button id="btnCalc">Compute Φ(x)</button>
+  </div>
+  <div class="tablewrap"><table id="calcTable"></table></div>
+  <canvas id="cvDens" width="860" height="280"></canvas>
+  <p class="small">The shaded area is P(Z ≤ x). Timing = average over many repeated evaluations in your browser.</p>
+</div>
+
+<h3>2.4 Comparison with a trusted reference</h3>
+<div class="card">
+  <p>Reference: SciPy <code>scipy.special.ndtr</code> (double precision), see
+  <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.ndtr.html">SciPy documentation</a>;
+  and the printed table of the
+  <a href="https://itl.nist.gov/div898/handbook/eda/section3/eda3671.htm">NIST/SEMATECH e-Handbook</a> (area from 0 to z, 5 decimals), which I use as an independent check below.</p>
+  <div class="controls">
+    <label>n for Simpson / trapezoid <input id="inNR" type="number" value="200" min="2" max="1000000"></label>
+    <label>erf series terms <input id="inTR" type="number" value="30" min="1" max="500"></label>
+    <button id="btnRef">Run benchmark</button>
+  </div>
+  <div class="tablewrap"><table id="refTable"></table></div>
+  <p class="small">Cells show the absolute error |method − SciPy|. Red = error larger than 10⁻⁶. At x = 5 the 30-term erf series is useless: the largest terms are about e<sup>z²</sup> ≈ 10<sup>5</sup> in size, and alternating signs destroy the digits (and 30 terms are not even enough there).</p>
+  <div class="tablewrap"><table id="nistTable"></table></div>
+</div>
+
+<h3>2.5 Convergence and efficiency at x = 2</h3>
+<div class="card">
+  <div class="controls"><button id="btnConv2">Run</button></div>
+  <canvas id="cvConv2" width="860" height="360"></canvas>
+  <div class="legend"><span><i style="background:#1f5fa8"></i>trapezoid (n)</span><span><i style="background:#c2571a"></i>Simpson (n)</span><span><i style="background:#2a8a4a"></i>erf series (terms)</span><span><i style="background:#888"></i>A&amp;S (constant)</span></div>
+  <div class="tablewrap"><table id="effTable"></table></div>
+</div>
+
+<h3>2.6 Conclusions for Exercise 2</h3>
+<div class="card">
+  <ul>
+    <li>Φ has no elementary closed form (Liouville). The erf function gives an exact representation, but computing it still needs numerics.</li>
+    <li>Simpson converges much faster than the trapezoid rule (error ~ n⁻⁴ vs n⁻²) at almost the same price per point.</li>
+    <li>The erf Maclaurin series reaches machine precision for small |x| with few terms, but loses accuracy for large |x| (alternating terms).</li>
+    <li>The non-alternating series Φ(x) = ½ + φ(x)·Σ x<sup>2k+1</sup>/(1·3·5···(2k+1)) is stable and reaches ~10⁻¹⁶ with a few dozen multiplications. It is the best method here.</li>
+    <li>The A&amp;S polynomial is the cheapest and good enough when 7 digits are enough, but its error has a floor.</li>
+  </ul>
+</div>
+
+</main>
+
+<script>
+// ===================== CORE MATH (shared by the page and the node test) =====================
+
+// ---- Exercise 1: test functions ----
+const FUNCS = [
+  { id: 'sin',   name: 'sin(x), x in [0, π]',              a: 0, b: Math.PI, f: x => Math.sin(x),              exact: 2 },
+  { id: 'sq',    name: 'x², x in [0, 1]',                   a: 0, b: 1,       f: x => x * x,                    exact: 1 / 3 },
+  { id: 'step3', name: '1 if x<0.5, 3 if x≥0.5',            a: 0, b: 1,       f: x => (x < 0.5 ? 1 : 3),        exact: 2 },
+  { id: 'abs',   name: '|x − 0.5|, x in [0, 1]',            a: 0, b: 1,       f: x => Math.abs(x - 0.5),        exact: 0.25 },
+  { id: 'inv',   name: '1/√x, x in (0, 1]  (unbounded)',    a: 0, b: 1,       f: x => 1 / Math.sqrt(x),         exact: 2 },
+  { id: 'step0', name: '1 if x<0.5, 0 if x≥0.5',            a: 0, b: 1,       f: x => (x < 0.5 ? 1 : 0),        exact: 0.5 },
+  { id: 'sinc',  name: 'sin(x)/x, x in [0, π]',             a: 0, b: Math.PI, f: x => (x === 0 ? 1 : Math.sin(x) / x), exact: 1.8519370519824662 } // Si(π)
+];
+
+// Riemann: split the DOMAIN in N equal pieces, midpoint rule. Uses N evaluations of f.
+function riemann(fn, N) {
+  const h = (fn.b - fn.a) / N;
+  let s = 0;
+  for (let i = 0; i < N; i++) s += fn.f(fn.a + (i + 0.5) * h);
+  return s * h;
+}
+
+// Lebesgue-inspired: split the RANGE in B bins, measure the preimage of each bin
+// (estimated by counting how many of M sample points of the domain fall in it),
+// then sum  y_j * measure(preimage_j).  Uses M evaluations of f (+ B counters).
+function lebesgue(fn, M, B) {
+  const h = (fn.b - fn.a) / M;
+  const vals = new Float64Array(M);
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < M; i++) {
+    const v = fn.f(fn.a + (i + 0.5) * h);
+    vals[i] = v;
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  if (hi === lo) return lo * (fn.b - fn.a);
+  const w = (hi - lo) / B;
+  const count = new Float64Array(B);
+  for (let i = 0; i < M; i++) {
+    let j = Math.floor((vals[i] - lo) / w);
+    if (j >= B) j = B - 1;
+    count[j]++;
+  }
+  let s = 0;
+  for (let j = 0; j < B; j++) {
+    const y = lo + (j + 0.5) * w;               // representative value of the bin
+    const meas = (count[j] / M) * (fn.b - fn.a); // estimated measure of the preimage
+    s += y * meas;
+  }
+  return s;
+}
+
+// ---- Pathological functions ----
+function gcd(a, b) { while (b) { [a, b] = [b, a % b]; } return a; }
+
+// Thomae: Riemann sum with the tags at the midpoints (2i+1)/(2N) (all rational!)
+function thomaeMidpoint(N) {
+  let s = 0;
+  for (let i = 0; i < N; i++) {
+    const p = 2 * i + 1, q = 2 * N;
+    const g = gcd(p, q);
+    s += g / q;               // f = 1/(q/g)
+  }
+  return s / N;
+}
+// Thomae: upper Darboux sum. sup of f on [i/N,(i+1)/N] = 1/q_min, q_min = smallest denominator inside.
+function thomaeUpper(N) {
+  let s = 0;
+  for (let i = 0; i < N; i++) {
+    let q = 1;
+    while (Math.floor((q * i + N - 1) / N) > Math.floor((q * (i + 1)) / N)) q++;
+    s += 1 / q;
+  }
+  return s / N;
+}
+
+// ---- Exercise 2: normal CDF ----
+const SQRT2PI = Math.sqrt(2 * Math.PI);
+const phi = t => Math.exp(-t * t / 2) / SQRT2PI;
+
+// (a) composite trapezoid on [0,|x|] then Phi = 1/2 ± integral
+function cdfTrapezoid(x, n) {
+  const L = Math.abs(x), h = L / n;
+  let s = 0.5 * (phi(0) + phi(L));
+  for (let i = 1; i < n; i++) s += phi(i * h);
+  const I = s * h;
+  return x >= 0 ? 0.5 + I : 0.5 - I;
+}
+// (b) composite Simpson (n even)
+function cdfSimpson(x, n) {
+  if (n % 2) n++;
+  const L = Math.abs(x), h = L / n;
+  let s = phi(0) + phi(L);
+  for (let i = 1; i < n; i++) s += (i % 2 ? 4 : 2) * phi(i * h);
+  const I = s * h / 3;
+  return x >= 0 ? 0.5 + I : 0.5 - I;
+}
+// (c) Maclaurin series of erf: erf(z) = 2/sqrt(pi) * sum (-1)^k z^(2k+1) / (k! (2k+1))
+function erfSeries(z, terms) {
+  let sum = 0, term = z;            // term = (-1)^k z^(2k+1)/k!
+  for (let k = 0; k < terms; k++) {
+    sum += term / (2 * k + 1);
+    term *= -z * z / (k + 1);
+  }
+  return 2 / Math.sqrt(Math.PI) * sum;
+}
+function cdfErfSeries(x, terms) { return 0.5 * (1 + erfSeries(x / Math.SQRT2, terms)); }
+// (d) series with NO alternating signs: Phi(x) = 1/2 + phi(x) * (x + x^3/3 + x^5/(3*5) + ...)
+function cdfDirectSeries(x, tol = 1e-17, maxTerms = 400) {
+  if (x > 9) return 1;
+  if (x < -9) return 0;
+  let term = x, sum = x, k = 0;
+  while (Math.abs(term) > tol * Math.abs(sum) && k < maxTerms) {
+    k++;
+    term *= x * x / (2 * k + 1);
+    sum += term;
+  }
+  cdfDirectSeries.lastTerms = k + 1;
+  return 0.5 + phi(x) * sum;
+}
+// (e) fast erf approximation, Abramowitz & Stegun 7.1.26 (|error| <= 1.5e-7)
+function erfAS(z) {
+  const s = z < 0 ? -1 : 1; z = Math.abs(z);
+  const t = 1 / (1 + 0.3275911 * z);
+  const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-z * z);
+  return s * y;
+}
+function cdfAS(x) { return 0.5 * (1 + erfAS(x / Math.SQRT2)); }
+
+// Reference values: scipy.special.ndtr (double precision), computed offline
+const REF = [
+  [-4, 3.167124183311986e-05], [-3, 0.0013498980316300933], [-2, 0.022750131948179195],
+  [-1, 0.15865525393145707], [-0.5, 0.3085375387259869], [0, 0.5], [0.5, 0.6914624612740131],
+  [1, 0.8413447460685429], [1.5, 0.9331927987311419], [1.96, 0.9750021048517795],
+  [2, 0.9772498680518208], [2.5, 0.9937903346742238], [3, 0.9986501019683699],
+  [4, 0.9999683287581669], [5, 0.9999997133484281]
+];
+// NIST handbook table: area from 0 to z, 5 decimals (add 0.5 to get Phi)
+const NIST = [[0.5, 0.19146], [1.0, 0.34134], [1.5, 0.43319], [2.0, 0.47725], [2.5, 0.49379], [3.0, 0.49865]];
+
+
+</script>
+<script>
+// ===================== PAGE CODE =====================
+const $ = id => document.getElementById(id);
+const fmt = v => (v === 0 ? '0' : (Math.abs(v) < 1e-4 || Math.abs(v) >= 1e6 ? v.toExponential(3) : v.toPrecision(8)));
+const fe = v => (v === 0 ? '0' : v.toExponential(2));
+function table(el, head, rows) {
+  el.innerHTML = '<tr>' + head.map(h => '<th>' + h + '</th>').join('') + '</tr>' +
+    rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('');
+}
+function timeIt(fn, minMs = 25) {      // average time per call in microseconds
+  let reps = 1, t = 0;
+  while (true) {
+    const t0 = performance.now();
+    for (let i = 0; i < reps; i++) fn();
+    t = performance.now() - t0;
+    if (t > minMs || reps > 1e6) break;
+    reps *= 4;
+  }
+  return t / reps * 1000;
+}
+let sink = 0; // so the JIT cannot throw the work away
+
+// ---- generic canvas helpers ----
+function frame(cv, xmin, xmax, ymin, ymax, pad = {l: 50, r: 14, t: 14, b: 30}) {
+  const ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  const X = x => pad.l + (x - xmin) / (xmax - xmin) * (W - pad.l - pad.r);
+  const Y = y => H - pad.b - (y - ymin) / (ymax - ymin) * (H - pad.t - pad.b);
+  ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.fillStyle = '#555'; ctx.font = '11px system-ui';
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b); ctx.lineTo(W - pad.r, H - pad.b); ctx.stroke();
+  return { ctx, X, Y, W, H, pad };
+}
+function ticks(a, b, n = 5) { const t = []; for (let i = 0; i <= n; i++) t.push(a + (b - a) * i / n); return t; }
+
+// ---- Exercise 1: one function ----
+for (const sel of [$('fsel'), $('fsel2')]) FUNCS.forEach((f, i) => sel.add(new Option(f.name, i)));
+
+function yRangeFor(fn) {
+  const n = 400, h = (fn.b - fn.a) / n; let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < n; i++) { const v = fn.f(fn.a + (i + .5) * h); lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  return [Math.min(0, lo), Math.min(hi, 8) * 1.08];
+}
+function drawRiemann(cv, fn, N) {
+  const [y0, y1] = yRangeFor(fn);
+  const { ctx, X, Y, pad, H } = frame(cv, fn.a, fn.b, y0, y1);
+  const n = Math.min(N, 60), h = (fn.b - fn.a) / n;
+  ctx.fillStyle = 'rgba(31,95,168,.35)'; ctx.strokeStyle = '#1f5fa8';
+  for (let i = 0; i < n; i++) {
+    const v = Math.min(fn.f(fn.a + (i + .5) * h), y1);
+    ctx.fillRect(X(fn.a + i * h), Y(v), X(fn.a + (i + 1) * h) - X(fn.a + i * h), Y(0) - Y(v));
+    ctx.strokeRect(X(fn.a + i * h), Y(v), X(fn.a + (i + 1) * h) - X(fn.a + i * h), Y(0) - Y(v));
+  }
+  curve(ctx, X, Y, fn, y1);
+  axisLabels(ctx, X, Y, fn.a, fn.b, y0, y1, H, pad);
+  ctx.fillStyle = '#333'; ctx.fillText(N > 60 ? 'drawn: 60 of ' + N + ' rectangles' : N + ' rectangles', pad.l + 8, pad.t + 10);
+}
+function curve(ctx, X, Y, fn, ycap) {
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 1.6; ctx.beginPath();
+  const n = 500; let started = false;
+  for (let i = 0; i < n; i++) {
+    const x = fn.a + (i + .5) * (fn.b - fn.a) / n, v = Math.min(fn.f(x), ycap);
+    if (!started) { ctx.moveTo(X(x), Y(v)); started = true; } else ctx.lineTo(X(x), Y(v));
+  }
+  ctx.stroke(); ctx.lineWidth = 1;
+}
+function axisLabels(ctx, X, Y, x0, x1, y0, y1, H, pad) {
+  ctx.fillStyle = '#555'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+  ticks(x0, x1, 4).forEach(t => ctx.fillText(t.toFixed(2), X(t), H - pad.b + 14));
+  ctx.textAlign = 'right';
+  ticks(y0, y1, 4).forEach(t => ctx.fillText(t.toFixed(1), pad.l - 5, Y(t) + 4));
+  ctx.textAlign = 'left';
+}
+function drawLebesgue(cv, fn, B) {
+  const [y0, y1] = yRangeFor(fn);
+  const { ctx, X, Y, pad, H } = frame(cv, fn.a, fn.b, y0, y1);
+  const n = 600, xs = [], vs = [];
+  for (let i = 0; i < n; i++) { const x = fn.a + (i + .5) * (fn.b - fn.a) / n; xs.push(x); vs.push(fn.f(x)); }
+  let lo = Math.min(...vs), hi = Math.min(Math.max(...vs), y1 / 1.08);
+  const nb = Math.min(B, 14), w = (hi - lo) / nb || 1;
+  for (let j = 0; j < nb; j++) {
+    const yl = lo + j * w, yh = yl + w;
+    ctx.fillStyle = 'hsla(' + (25 + j * 14) + ',75%,52%,.45)';
+    let run = null;                      // draw the preimage: where f >= yl
+    for (let i = 0; i <= n; i++) {
+      const inside = i < n && vs[i] >= yl;
+      if (inside && run === null) run = xs[i];
+      if (!inside && run !== null) {
+        ctx.fillRect(X(run), Y(yh), X(xs[i - 1]) - X(run), Y(yl) - Y(yh)); run = null;
+      }
+    }
+  }
+  curve(ctx, X, Y, fn, y1);
+  axisLabels(ctx, X, Y, fn.a, fn.b, y0, y1, H, pad);
+  ctx.fillStyle = '#333'; ctx.fillText(B > 14 ? 'drawn: 14 of ' + B + ' layers' : B + ' layers', pad.l + 8, pad.t + 10);
+}
+$('btnOne').onclick = () => {
+  const fn = FUNCS[$('fsel').value], N = +$('inN').value, B = +$('inB').value, M = +$('inM').value;
+  const r = riemann(fn, N), l = lebesgue(fn, M, B);
+  const tr = timeIt(() => { sink += riemann(fn, N); }), tl = timeIt(() => { sink += lebesgue(fn, M, B); });
+  table($('oneTable'), ['Method', 'Result', 'Exact', '|error|', 'f evaluations', 'time (µs)'], [
+    ['Riemann midpoint (N=' + N + ')', fmt(r), fmt(fn.exact), fe(Math.abs(r - fn.exact)), N, tr.toFixed(1)],
+    ['Lebesgue-style (M=' + M + ', B=' + B + ')', fmt(l), fmt(fn.exact), fe(Math.abs(l - fn.exact)), M, tl.toFixed(1)]
+  ]);
+  drawRiemann($('cvR'), fn, N); drawLebesgue($('cvL'), fn, B);
+};
+
+// ---- Exercise 1: all functions ----
+$('btnAll').onclick = () => {
+  const N = +$('inAll').value, B = +$('inAllB').value;
+  table($('allTable'), ['Function', 'Exact', 'Riemann', '|err R|', 'Lebesgue-style', '|err L|'],
+    FUNCS.map(fn => { const r = riemann(fn, N), l = lebesgue(fn, N, B);
+      return [fn.name, fmt(fn.exact), fmt(r), fe(Math.abs(r - fn.exact)), fmt(l), fe(Math.abs(l - fn.exact))]; }));
+};
+
+// ---- Exercise 1: convergence ----
+function logPlot(cv, series, xlab, ylab, xmin, xmax, refSlopes) {
+  const all = series.flatMap(s => s.pts.map(p => p[1]).filter(v => v > 0));
+  const ymin = Math.floor(Math.log10(Math.min(...all, 1e-16))), ymax = Math.ceil(Math.log10(Math.max(...all, 1e-3)));
+  const lx0 = Math.log10(xmin), lx1 = Math.log10(xmax);
+  const { ctx, X, Y, W, H, pad } = frame(cv, lx0, lx1, ymin, ymax, {l: 60, r: 14, t: 14, b: 36});
+  ctx.fillStyle = '#555'; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+  for (let e = ymin; e <= ymax; e += Math.max(1, Math.round((ymax - ymin) / 8))) {
+    ctx.strokeStyle = '#eee'; ctx.beginPath(); ctx.moveTo(pad.l, Y(e)); ctx.lineTo(W - pad.r, Y(e)); ctx.stroke();
+    ctx.fillText('1e' + e, pad.l - 5, Y(e) + 4);
+  }
+  ctx.textAlign = 'center';
+  for (let e = Math.ceil(lx0); e <= lx1; e++) ctx.fillText('1e' + e, X(e), H - pad.b + 14);
+  ctx.fillText(xlab, W / 2, H - 4);
+  ctx.save(); ctx.translate(12, H / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(ylab, 0, 0); ctx.restore();
+  // reference slopes through the first point of the first series
+  if (refSlopes) {
+    const p0 = series[0].pts.find(p => p[1] > 0);
+    if (p0) refSlopes.forEach(sl => {
+      ctx.strokeStyle = '#bbb'; ctx.setLineDash([5, 4]); ctx.beginPath();
+      ctx.moveTo(X(Math.log10(xmin)), Y(Math.log10(p0[1]) + sl * (Math.log10(xmin) - Math.log10(p0[0]))));
+      ctx.lineTo(X(Math.log10(xmax)), Y(Math.log10(p0[1]) + sl * (Math.log10(xmax) - Math.log10(p0[0]))));
+      ctx.stroke(); ctx.setLineDash([]);
+    });
+  }
+  series.forEach(s => {
+    ctx.strokeStyle = s.color; ctx.fillStyle = s.color; ctx.lineWidth = 2; ctx.beginPath();
+    let first = true;
+    s.pts.forEach(p => { const yv = Math.max(p[1], 1e-17); const x = X(Math.log10(p[0])), y = Y(Math.log10(yv));
+      if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y); });
+    ctx.stroke(); ctx.lineWidth = 1;
+    s.pts.forEach(p => { ctx.beginPath(); ctx.arc(X(Math.log10(p[0])), Y(Math.log10(Math.max(p[1], 1e-17))), 3, 0, 7); ctx.fill(); });
+  });
+}
+$('btnConv').onclick = () => {
+  const fn = FUNCS[$('fsel2').value], Ns = [10, 30, 100, 300, 1000, 3000, 10000, 30000, 100000];
+  const sr = [], sl = [], rows = [];
+  for (const N of Ns) {
+    const r = riemann(fn, N), l = lebesgue(fn, N, N);
+    const er = Math.abs(r - fn.exact), el = Math.abs(l - fn.exact);
+    const tr = timeIt(() => { sink += riemann(fn, N); }, 10), tl = timeIt(() => { sink += lebesgue(fn, N, N); }, 10);
+    sr.push([N, er]); sl.push([N, el]);
+    rows.push([N, fmt(r), fe(er), fmt(l), fe(el), tr.toFixed(1), tl.toFixed(1)]);
+  }
+  logPlot($('cvConv'), [{ pts: sr, color: '#1f5fa8' }, { pts: sl, color: '#c2571a' }], 'N (= M = B)', 'absolute error', 10, 1e5, [-1, -2]);
+  table($('convTable'), ['N', 'Riemann', '|err R|', 'Lebesgue-style', '|err L|', 'time R (µs)', 'time L (µs)'], rows);
+};
+
+// ---- Exercise 1: pathological ----
+$('btnPath').onclick = () => {
+  const rows = [];
+  for (const N of [10, 100, 1000]) {
+    rows.push(['Dirichlet, N=' + N, 'tags rational: ' + 1 + '; tags irrational: ' + 0, 'lower 0 / upper 1', '0 (rationals have measure 0)']);
+  }
+  for (const N of [10, 100, 1000]) {
+    rows.push(['Thomae, N=' + N, 'midpoint sum: ' + thomaeMidpoint(N).toFixed(5), 'lower 0 / upper ' + thomaeUpper(N).toFixed(5), '0']);
+  }
+  table($('pathTable'), ['Case', 'Riemann sum', 'Darboux sums', 'Lebesgue integral'], rows);
+  // what a computer sees
+  let allRational = true, cnt = 0, tot = 1000;
+  for (let i = 0; i < tot; i++) { const x = (i + .5) / tot; if (Number.isFinite(x)) cnt++; } // every float is a rational number m/2^k
+  $('pathNote').innerHTML = '<b>Sampling trap.</b> If I try to estimate the measure of the rationals by sampling the grid, I find ' + cnt + ' of ' + tot +
+    ' points "rational", i.e. measure 1 and integral 1. That is wrong: every floating-point number is a rational (m / 2<sup>k</sup>), so the grid can never contain an irrational point. ' +
+    'Dirichlet: the Riemann sum really depends on the tag choice (1 with rational tags, 0 with irrational tags), so the limit does not exist. ' +
+    'Thomae: the upper Darboux sums go to 0 (they must, since the function is Riemann-integrable), and the numbers above show it, slowly (in these runs roughly like 1/√N: 0.457, 0.131, 0.037).';
+};
+
+// ---- Exercise 2: calculator ----
+function methods(x, n, terms) {
+  return [
+    ['Trapezoid (n=' + n + ')', () => cdfTrapezoid(x, n), n + 1 + ' φ-evaluations'],
+    ['Simpson (n=' + n + ')', () => cdfSimpson(x, n), n + 1 + ' φ-evaluations'],
+    ['erf Maclaurin series (' + terms + ' terms)', () => cdfErfSeries(x, terms), terms + ' terms'],
+    ['Direct non-alternating series', () => cdfDirectSeries(x), (cdfDirectSeries(x), cdfDirectSeries.lastTerms) + ' terms'],
+    ['A&S 7.1.26 approximation', () => cdfAS(x), '1 exp + 5 mult.']
+  ];
+}
+function nearestRef(x) { const r = REF.find(p => Math.abs(p[0] - x) < 1e-12); return r ? r[1] : null; }
+$('btnCalc').onclick = () => {
+  const x = +$('inX').value, n = +$('inNQ').value, t = +$('inT').value, ref = nearestRef(x);
+  const rows = methods(x, n, t).map(([name, fn, cost]) => {
+    const v = fn(), us = timeIt(() => { sink += fn(); });
+    return [name, v.toFixed(15), ref === null ? '(no reference stored)' : fe(Math.abs(v - ref)), cost, us.toFixed(2)];
+  });
+  table($('calcTable'), ['Method', 'Φ(x)', '|error| vs SciPy', 'Effort', 'time (µs)'], rows);
+  if (ref === null) $('calcTable').insertAdjacentHTML('afterend', '');
+  drawDensity($('cvDens'), x);
+};
+function drawDensity(cv, x) {
+  const { ctx, X, Y, H, pad } = frame(cv, -4, 4, 0, 0.42);
+  ctx.fillStyle = 'rgba(31,95,168,.35)'; ctx.beginPath(); ctx.moveTo(X(-4), Y(0));
+  for (let t = -4; t <= Math.min(x, 4); t += 0.02) ctx.lineTo(X(t), Y(phi(t)));
+  ctx.lineTo(X(Math.min(x, 4)), Y(0)); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 1.8; ctx.beginPath();
+  for (let t = -4; t <= 4.001; t += 0.02) (t === -4 ? ctx.moveTo : ctx.lineTo).call(ctx, X(t), Y(phi(t)));
+  ctx.stroke(); ctx.lineWidth = 1;
+  axisLabels(ctx, X, Y, -4, 4, 0, 0.42, H, pad);
+  ctx.fillStyle = '#333'; ctx.fillText('Φ(' + x + ') = ' + cdfDirectSeries(x).toFixed(6), pad.l + 10, pad.t + 12);
+}
+
+// ---- Exercise 2: benchmark vs reference ----
+$('btnRef').onclick = () => {
+  const n = +$('inNR').value, t = +$('inTR').value;
+  const cell = e => '<span class="' + (e > 1e-6 ? 'bad' : 'good') + '">' + fe(e) + '</span>';
+  const rows = REF.map(([x, ref]) => [x, ref.toPrecision(15),
+    cell(Math.abs(cdfTrapezoid(x, n) - ref)), cell(Math.abs(cdfSimpson(x, n) - ref)),
+    cell(Math.abs(cdfErfSeries(x, t) - ref)), cell(Math.abs(cdfDirectSeries(x) - ref)), cell(Math.abs(cdfAS(x) - ref))]);
+  table($('refTable'), ['x', 'SciPy ndtr(x)', 'Trapezoid', 'Simpson', 'erf series', 'Direct series', 'A&S'], rows);
+  table($('nistTable'), ['z', 'NIST area 0→z', 'mine: Φ(z) − 0.5 (direct series), 5 decimals', 'same?'],
+    NIST.map(([z, a]) => { const m = (cdfDirectSeries(z) - 0.5).toFixed(5); return [z, a.toFixed(5), m, m === a.toFixed(5) ? '✓' : '✗']; }));
+};
+
+// ---- Exercise 2: convergence + efficiency ----
+$('btnConv2').onclick = () => {
+  const x = 2, ref = REF.find(p => p[0] === 2)[1];
+  const ns = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048];
+  const tr = ns.map(n => [n, Math.abs(cdfTrapezoid(x, n) - ref)]);
+  const si = ns.map(n => [n, Math.abs(cdfSimpson(x, n) - ref)]);
+  const se = []; for (let k = 2; k <= 40; k += 2) se.push([k, Math.abs(cdfErfSeries(x, k) - ref)]);
+  const asv = ns.map(n => [n, Math.abs(cdfAS(x) - ref)]);
+  logPlot($('cvConv2'), [{ pts: tr, color: '#1f5fa8' }, { pts: si, color: '#c2571a' }, { pts: se, color: '#2a8a4a' }, { pts: asv, color: '#888' }],
+    'n (subintervals) or number of series terms', 'absolute error at x = 2', 2, 2048);
+  const rows = [
+    ['Trapezoid, n=1000', 1001, fe(Math.abs(cdfTrapezoid(x, 1000) - ref)), timeIt(() => { sink += cdfTrapezoid(x, 1000); }).toFixed(2)],
+    ['Simpson, n=20', 21, fe(Math.abs(cdfSimpson(x, 20) - ref)), timeIt(() => { sink += cdfSimpson(x, 20); }).toFixed(2)],
+    ['Simpson, n=100', 101, fe(Math.abs(cdfSimpson(x, 100) - ref)), timeIt(() => { sink += cdfSimpson(x, 100); }).toFixed(2)],
+    ['erf series, 20 terms', 20, fe(Math.abs(cdfErfSeries(x, 20) - ref)), timeIt(() => { sink += cdfErfSeries(x, 20); }).toFixed(2)],
+    ['Direct series (to 1e-17)', (cdfDirectSeries(x), cdfDirectSeries.lastTerms), fe(Math.abs(cdfDirectSeries(x) - ref)), timeIt(() => { sink += cdfDirectSeries(x); }).toFixed(2)],
+    ['A&S 7.1.26', 1, fe(Math.abs(cdfAS(x) - ref)), timeIt(() => { sink += cdfAS(x); }).toFixed(2)]
+  ];
+  table($('effTable'), ['Method', 'Evaluations / terms', '|error|', 'time (µs)'], rows);
+};
+
+// run something on load so the page is not empty
+$('btnOne').click(); $('btnAll').click(); $('btnCalc').click(); $('btnRef').click();
+</script>
+</body>
+</html>
