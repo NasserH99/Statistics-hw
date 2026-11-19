@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coffee and Sleep</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout idea: one calm column, like a lab notebook. Theory first, then the data box,
+   then every table the homework asks for, then the written conclusion. */
+:root {
+  --bg: #f4f7f6;
+  --surface: #ffffff;
+  --fg: #14201f;
+  --muted: #55645f;
+  --line: #d5dedb;
+  --accent: #0f6b62;
+  --accent-ink: #ffffff;
+  --accent-soft: #e0efec;
+  --warn: #8a5a00;
+  --warn-bg: #fbf0d9;
+  --bad: #b3261e;
+  --seg-ink: #0b0b0b;
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100;
+  --c5: #e87ba4; --c6: #008300; --c7: #6250d6; --c8: #e34948;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1514; --surface: #151f1d; --fg: #e5eeec; --muted: #9db1ad; --line: #27352f;
+    --accent: #4cc2b3; --accent-ink: #062521; --accent-soft: #17302c;
+    --warn: #f0c267; --warn-bg: #2d2411; --bad: #ff8a80;
+    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500;
+    --c5: #d55181; --c6: #0ca30c; --c7: #9085e9; --c8: #e66767;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1514; --surface: #151f1d; --fg: #e5eeec; --muted: #9db1ad; --line: #27352f;
+  --accent: #4cc2b3; --accent-ink: #062521; --accent-soft: #17302c;
+  --warn: #f0c267; --warn-bg: #2d2411; --bad: #ff8a80;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500;
+  --c5: #d55181; --c6: #0ca30c; --c7: #9085e9; --c8: #e66767;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6; }
+.page {
+  max-width: 880px; margin: 0 auto;
+  padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 32px;
+}
+h1, h2, h3 { font-family: var(--font-head); line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 6vw, 44px); letter-spacing: -0.02em; }
+h2 { font-size: 22px; letter-spacing: -0.01em; }
+h3 { font-size: 15px; font-weight: 600; font-family: var(--font-body); }
+p { margin: 0; max-width: 68ch; }
+.lead { color: var(--muted); font-size: 17px; }
+.eyebrow { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+section { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.formula { font-family: var(--font-mono); font-size: 14px; background: var(--accent-soft); border-radius: 6px; padding: 10px 12px; overflow-x: auto; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 14px; width: 100%; }
+th, td { padding: 7px 12px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-weight: 600; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; border-bottom: 2px solid var(--line); }
+tr.total td, td.total, th.total { font-weight: 600; background: var(--accent-soft); }
+tr.total td { border-top: 2px solid var(--line); }
+td.shade { background: color-mix(in srgb, var(--accent) calc(var(--w, 0) * 55%), transparent); }
+caption { text-align: left; color: var(--muted); font-size: 13px; padding-bottom: 6px; caption-side: top; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button, select { font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+button.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+textarea { width: 100%; height: 220px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); resize: vertical; }
+label { font-size: 14px; color: var(--muted); }
+.hint { font-size: 13px; color: var(--muted); }
+.error { color: var(--bad); font-weight: 500; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-width: 0; }
+.stat b { display: block; font-family: var(--font-head); font-size: 22px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.verdict { border-radius: 6px; padding: 12px 14px; font-weight: 500; background: var(--accent-soft); }
+.verdict.warn { background: var(--warn-bg); color: var(--warn); }
+pre { margin: 0; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; overflow-x: auto; }
+details summary { cursor: pointer; font-weight: 500; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.bar-row { display: grid; grid-template-columns: 84px 1fr; gap: 10px; align-items: center; }
+.bar-row .name { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.bar { display: flex; gap: 2px; height: 30px; }
+.bar span { min-width: 0; border-radius: 4px; color: var(--seg-ink); font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; overflow: hidden; font-variant-numeric: tabular-nums; }
+.bar-row.all { margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.sep { color: var(--muted); font-size: 13px; }
+@media (prefers-reduced-motion: no-preference) { button { transition: background 0.15s; } }
+</style>
+
+</head><body><main class="page">
+  <header style="display:flex;flex-direction:column;gap:10px">
+    <div class="eyebrow">Statistics 2026 · Homework 6</div>
+    <h1>Coffee and Sleep</h1>
+    <p class="lead">Are the number of coffees someone drinks and the quality of their sleep independent? This page builds the contingency table from raw pairs, tests it with chi-square, and says what the result does and does not mean.</p>
+  </header>
+
+  <section>
+    <h2>Theory</h2>
+    <div class="two">
+      <div class="card">
+        <h3>In probability</h3>
+        <p>Two variables X and F are independent when knowing one tells you nothing about the other. For every pair of values (i, j):</p>
+        <div class="formula">P(X = i, F = j) = P(X = i) · P(F = j)</div>
+        <p>Same idea in words: the conditional distribution P(F | X = i) is the same for every i, and it equals the marginal P(F).</p>
+      </div>
+      <div class="card">
+        <h3>In statistics</h3>
+        <p>From n observations we count n<sub>ij</sub> pairs. If X and F were independent, we would expect:</p>
+        <div class="formula">E<sub>ij</sub> = (row total × column total) / n</div>
+        <div class="formula">χ² = Σ (O − E)² / E &nbsp; df = (R − 1)(C − 1)</div>
+        <p>A real sample is never exactly independent, so the test asks if the gaps between O and E are bigger than chance would give.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Data</h2>
+    <div class="card">
+      <div class="controls" id="presets">
+        <button id="pre-coffee" class="on">Coffee and sleep</button>
+        <button id="pre-phone">Phone and handedness</button>
+        <button id="resample">New random sample</button>
+      </div>
+      <p class="hint" id="presetNote"></p>
+      <label for="data">One pair per line. The first line holds the two variable names. You can paste your own data here.</label>
+      <textarea id="data" spellcheck="false"></textarea>
+      <div class="controls">
+        <button class="primary" id="go">Analyze</button>
+        <label for="alpha">Significance level α</label>
+        <select id="alpha">
+          <option value="0.01">0.01</option>
+          <option value="0.05" selected>0.05</option>
+          <option value="0.10">0.10</option>
+        </select>
+        <span class="hint" id="count"></span>
+      </div>
+      <div class="error" id="err" role="alert"></div>
+    </div>
+  </section>
+
+  <div id="results" style="display:flex;flex-direction:column;gap:32px">
+    <section>
+      <h2>Contingency table and marginal frequencies</h2>
+      <p>Each cell n<sub>ij</sub> counts the people with X = i and F = j. The last row and last column are the marginal frequencies: the totals for each variable alone.</p>
+      <div class="card scroll" id="tObs"></div>
+    </section>
+
+    <section>
+      <h2>Conditional frequencies</h2>
+      <p>Each table divides the counts by a row total or a column total. Under independence all rows of the first table would be equal to its last row, and all columns of the second table equal to its last column.</p>
+      <div class="two">
+        <div class="card scroll" id="tCondRow"></div>
+        <div class="card scroll" id="tCondCol"></div>
+      </div>
+      <div class="card">
+        <h3>Same thing as a picture</h3>
+        <div class="legend" id="legend"></div>
+        <div id="bars" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Expected frequencies under independence</h2>
+      <p>These are the counts we would see if the two variables did not affect each other, with the same row and column totals.</p>
+      <div class="card scroll" id="tExp"></div>
+    </section>
+
+    <section>
+      <h2>Chi-square test</h2>
+      <div class="card">
+        <div class="two" style="gap:10px">
+          <p><b>H₀:</b> <span class="nx"></span> and <span class="nf"></span> are independent.</p>
+          <p><b>H₁:</b> <span class="nx"></span> and <span class="nf"></span> are associated.</p>
+        </div>
+        <div class="stats" id="stats"></div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+      <div class="card scroll" id="tContrib"></div>
+    </section>
+
+    <section>
+      <h2>Conclusion</h2>
+      <div class="card" id="concl" style="gap:12px"></div>
+    </section>
+  </div>
+
+  <section>
+    <h2>The code</h2>
+    <p>This is the function that runs when you press Analyze. It is printed from the live code, so what you read is what runs.</p>
+    <pre id="code1"></pre>
+    <details>
+      <summary>Helper that turns χ² into a p-value</summary>
+      <pre id="code2" style="margin-top:10px"></pre>
+    </details>
+  </section>
+</main>
+
+<script>
+// ==CORE START==
+// Builds every table from the raw (x, f) pairs.
+function analyse(pairs) {
+  const cmp = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+  const rows = [...new Set(pairs.map(p => p[0]))].sort(cmp);   // values of X
+  const cols = [...new Set(pairs.map(p => p[1]))].sort(cmp);   // values of F
+  const R = rows.length, C = cols.length, n = pairs.length;
+
+  // 1. contingency table: count every pair once
+  const O = rows.map(() => cols.map(() => 0));
+  for (const [x, f] of pairs) O[rows.indexOf(x)][cols.indexOf(f)]++;
+
+  // 2. marginal frequencies (row totals, column totals)
+  const rowTot = O.map(r => r.reduce((s, v) => s + v, 0));
+  const colTot = cols.map((_, j) => O.reduce((s, r) => s + r[j], 0));
+  const margX = rowTot.map(t => t / n);          // P(X = i)
+  const margF = colTot.map(t => t / n);          // P(F = j)
+
+  // 3. conditional frequencies
+  const condRow = O.map((r, i) => r.map(v => v / rowTot[i]));          // P(F = j | X = i)
+  const condCol = O.map(r => r.map((v, j) => v / colTot[j]));          // P(X = i | F = j)
+
+  // 4. expected counts if X and F were independent
+  const E = O.map((r, i) => r.map((_, j) => rowTot[i] * colTot[j] / n));
+
+  // 5. chi-square: add up (O - E)^2 / E over all cells
+  const contrib = O.map((r, i) => r.map((o, j) => (o - E[i][j]) ** 2 / E[i][j]));
+  const chi2 = contrib.flat().reduce((s, v) => s + v, 0);
+  const df = (R - 1) * (C - 1);
+  const p = chiSquarePValue(chi2, df);
+  const V = Math.sqrt(chi2 / (n * Math.min(R - 1, C - 1)));   // Cramér's V, strength 0 to 1
+
+  return { rows, cols, n, O, rowTot, colTot, margX, margF, condRow, condCol, E, contrib, chi2, df, p, V };
+}
+
+// p-value = P(chi-square with df degrees of freedom >= observed chi2)
+function chiSquarePValue(chi2, df) {
+  const a = df / 2, x = chi2 / 2;
+  if (x <= 0) return 1;
+  const lg = lnGamma(a);
+  if (x < a + 1) {                       // series for the lower part P(a, x)
+    let sum = 1 / a, term = 1 / a;
+    for (let k = 1; k < 500; k++) { term *= x / (a + k); sum += term; if (term < sum * 1e-15) break; }
+    return Math.max(0, 1 - sum * Math.exp(-x + a * Math.log(x) - lg));
+  }
+  let b = x + 1 - a, c = 1e300, d = 1 / b, h = d;   // continued fraction for the upper part Q(a, x)
+  for (let i = 1; i < 500; i++) {
+    const an = -i * (i - a);
+    b += 2;
+    d = an * d + b; if (Math.abs(d) < 1e-300) d = 1e-300;
+    c = b + an / c; if (Math.abs(c) < 1e-300) c = 1e-300;
+    d = 1 / d;
+    const del = d * c; h *= del;
+    if (Math.abs(del - 1) < 1e-15) break;
+  }
+  return Math.min(1, Math.exp(-x + a * Math.log(x) - lg) * h);
+}
+
+function lnGamma(z) {                    // Lanczos approximation
+  const g = [676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059,
+             12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  z -= 1;
+  let x = 0.99999999999980993;
+  for (let i = 0; i < 8; i++) x += g[i] / (z + i + 1);
+  const t = z + 7.5;
+  return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+}
+
+// Example data, made up by a seeded random generator so the page always opens the same way.
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const PRESETS = {
+  coffee: {
+    header: "coffee,sleep",
+    groups: [["0 cups", 40, [["good", 0.72], ["poor", 0.28]]],
+             ["1-2 cups", 50, [["good", 0.62], ["poor", 0.38]]],
+             ["3+ cups", 30, [["good", 0.33], ["poor", 0.67]]]],
+    note: "Made-up numbers, built so that heavy coffee drinkers sleep worse more often."
+  },
+  phone: {
+    header: "hand,phone",
+    groups: [["left", 40, [["Android", 0.40], ["iPhone", 0.45], ["other", 0.15]]],
+             ["right", 160, [["Android", 0.40], ["iPhone", 0.45], ["other", 0.15]]]],
+    note: "Independent by design: the generator picks the phone without looking at the hand. Even so, about 5% of random samples reject H₀ at α = 0.05. Press New random sample a few times."
+  }
+};
+function makeData(key, seed) {
+  const P = PRESETS[key], rnd = mulberry32(seed), out = [P.header];
+  for (const [x, count, probs] of P.groups) {
+    for (let k = 0; k < count; k++) {
+      let u = rnd(), f = probs[probs.length - 1][0];
+      for (const [name, pr] of probs) { if (u < pr) { f = name; break; } u -= pr; }
+      out.push(x + "," + f);
+    }
+  }
+  return out.join("\n");
+}
+// ==CORE END==
+</script>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = v => (v * 100).toFixed(1) + "%";
+const fmtP = p => p < 0.0001 ? "< 0.0001" : p.toFixed(4);
+
+let current = "coffee", seed = 7;
+
+function parse(text) {
+  const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (lines.length < 3) throw new Error("Need a header line and at least 2 data lines.");
+  const names = lines[0].split(",").map(s => s.trim());
+  if (names.length !== 2 || !names[0] || !names[1]) throw new Error('The first line should hold two names, like "x,f".');
+  const pairs = lines.slice(1).map((l, i) => {
+    const p = l.split(",").map(s => s.trim());
+    if (p.length !== 2 || !p[0] || !p[1]) throw new Error('Line ' + (i + 2) + ' should look like "x,f".');
+    return p;
+  });
+  return { names, pairs };
+}
+
+// small helper: one table as an HTML string
+function table(caption, corner, rowNames, colNames, cell, opt) {
+  opt = opt || {};
+  let h = "<table><caption>" + caption + "</caption><thead><tr><th>" + corner + "</th>";
+  colNames.forEach(c => h += "<th>" + esc(c) + "</th>");
+  if (opt.colTot) h += '<th class="total">' + opt.colTotName + "</th>";
+  h += "</tr></thead><tbody>";
+  rowNames.forEach((r, i) => {
+    h += "<tr><td>" + esc(r) + "</td>";
+    colNames.forEach((_, j) => h += cell(i, j));
+    if (opt.colTot) h += '<td class="total">' + opt.colTot[i] + "</td>";
+    h += "</tr>";
+  });
+  if (opt.rowTot) {
+    h += '<tr class="total"><td>' + opt.rowTotName + "</td>";
+    opt.rowTot.forEach(v => h += "<td>" + v + "</td>");
+    if (opt.colTot) h += "<td>" + (opt.corner || "") + "</td>";
+    h += "</tr>";
+  }
+  return h + "</tbody></table>";
+}
+
+function run() {
+  const err = $("err"); err.textContent = "";
+  let a, names;
+  try {
+    const parsed = parse($("data").value);
+    names = parsed.names;
+    a = analyse(parsed.pairs);
+    if (a.rows.length < 2 || a.cols.length < 2) throw new Error("Each variable needs at least 2 different values.");
+    if (a.rows.length > 8 || a.cols.length > 8) throw new Error("Please use at most 8 values per variable.");
+  } catch (e) {
+    err.textContent = e.message; $("results").hidden = true; return;
+  }
+  $("results").hidden = false;
+  const X = names[0], F = names[1], alpha = parseFloat($("alpha").value);
+  const { rows, cols, n, O, rowTot, colTot, margX, margF, condRow, condCol, E, contrib, chi2, df, p, V } = a;
+  $("count").textContent = n + " observations, " + rows.length + " × " + cols.length + " table";
+  document.querySelectorAll(".nx").forEach(e => e.textContent = X);
+  document.querySelectorAll(".nf").forEach(e => e.textContent = F);
+
+  $("tObs").innerHTML = table("Observed counts n<sub>ij</sub>", esc(X) + " \\ " + esc(F), rows, cols,
+    (i, j) => "<td>" + O[i][j] + "</td>",
+    { rowTot: colTot, rowTotName: "Total", colTot: rowTot, colTotName: "Total", corner: n });
+
+  $("tCondRow").innerHTML = table("P(" + esc(F) + " | " + esc(X) + "). Each row adds to 100%.", esc(X), rows.concat(["all"]), cols,
+    (i, j) => i < rows.length ? "<td>" + pct(condRow[i][j]) + "</td>" : '<td class="total">' + pct(margF[j]) + "</td>");
+  $("tCondCol").innerHTML = table("P(" + esc(X) + " | " + esc(F) + "). Each column adds to 100%.", esc(X), rows, cols.concat(["all"]),
+    (i, j) => j < cols.length ? "<td>" + pct(condCol[i][j]) + "</td>" : '<td class="total">' + pct(margX[i]) + "</td>");
+
+  // bars: the conditional distribution of F inside each X, plus the overall one
+  $("legend").innerHTML = cols.map((c, j) => '<span><i style="background:var(--c' + (j + 1) + ')"></i>' + esc(F) + " = " + esc(c) + "</span>").join("");
+  const bar = (name, dist, cls) => '<div class="bar-row ' + (cls || "") + '"><div class="name">' + esc(name) + '</div><div class="bar">' +
+    dist.map((v, j) => '<span style="flex:' + v + ';background:var(--c' + (j + 1) + ')" title="' + esc(cols[j]) + ': ' + pct(v) + '">' + (v >= 0.08 ? pct(v) : "") + "</span>").join("") + "</div></div>";
+  $("bars").innerHTML = rows.map((r, i) => bar(r, condRow[i])).join("") + bar("all", margF, "all");
+
+  $("tExp").innerHTML = table("Expected counts E<sub>ij</sub> = row total × column total / n", esc(X) + " \\ " + esc(F), rows, cols,
+    (i, j) => "<td>" + E[i][j].toFixed(2) + "</td>",
+    { rowTot: colTot, rowTotName: "Total", colTot: rowTot, colTotName: "Total", corner: n });
+
+  const maxC = Math.max(...contrib.flat());
+  $("tContrib").innerHTML = table("Each cell's share of χ²: (O − E)² / E. Darker means it pulls harder away from independence.", esc(X) + " \\ " + esc(F), rows, cols,
+    (i, j) => '<td class="shade" style="--w:' + (maxC ? contrib[i][j] / maxC : 0).toFixed(3) + '">' + contrib[i][j].toFixed(3) + "</td>");
+
+  const stat = (label, value) => '<div class="stat"><b>' + value + "</b><span>" + label + "</span></div>";
+  $("stats").innerHTML = stat("χ²", chi2.toFixed(3)) + stat("df", df) + stat("p-value", fmtP(p)) + stat("α", alpha) + stat("Cramér's V", V.toFixed(3));
+
+  const reject = p < alpha;
+  const v = $("verdict");
+  v.className = "verdict" + (reject ? "" : " warn");
+  v.textContent = reject
+    ? "p = " + fmtP(p) + " is smaller than α = " + alpha + ". Reject H₀: the data do not look independent."
+    : "p = " + fmtP(p) + " is not smaller than α = " + alpha + ". Do not reject H₀: the data are compatible with independence.";
+
+  // the written conclusion changes with the data
+  let big = { c: -1 };
+  contrib.forEach((r, i) => r.forEach((c, j) => { if (c > big.c) big = { c, i, j }; }));
+  const strength = V < 0.1 ? "very weak" : V < 0.3 ? "weak" : V < 0.5 ? "moderate" : "strong";
+  const minE = Math.min(...E.flat());
+  let html = "";
+  html += "<p><b>What the test says.</b> " + (reject
+    ? "With α = " + alpha + " we reject independence. In this sample, " + esc(X) + " and " + esc(F) + " are statistically dependent: the conditional distributions of " + esc(F) + " change from one value of " + esc(X) + " to another, more than chance alone would usually produce."
+    : "With α = " + alpha + " we cannot reject independence. The gaps between observed and expected counts are the size chance can produce. This does not prove the variables are independent. A small sample can hide a real link.") + "</p>";
+  html += "<p><b>How strong.</b> Cramér's V is " + V.toFixed(3) + ", a " + strength + " association. The p-value only says if there is a gap. V says how big the gap is. With a very large n even a tiny gap gives a small p-value.</p>";
+  html += "<p><b>Where it comes from.</b> The cell pulling hardest is " + esc(X) + " = " + esc(rows[big.i]) + " with " + esc(F) + " = " + esc(cols[big.j]) +
+    ": observed " + O[big.i][big.j] + ", expected " + E[big.i][big.j].toFixed(2) + ", which is " + (big.c / chi2 * 100).toFixed(0) + "% of the whole χ².</p>";
+  if (minE < 5) html += '<p class="verdict warn">Careful: the smallest expected count is ' + minE.toFixed(2) + ', below the rule of thumb of 5. The χ² approximation can be unreliable here.</p>';
+  html += "<p><b>Association is not causality.</b> χ² treats the two variables the same way, so it gives no direction. A link between " + esc(X) + " and " + esc(F) +
+    " could mean " + esc(X) + " affects " + esc(F) + ", or " + esc(F) + " affects " + esc(X) + ", or a third thing affects both. The table does not contain that third thing, so it cannot rule it out. To show a cause you need a designed experiment with random assignment, or a causal model, not only a test of independence.</p>";
+  if (PRESETS[current] && $("data").value === lastGenerated && PRESETS[current].extra) html += "<p>" + PRESETS[current].extra + "</p>";
+  $("concl").innerHTML = html;
+}
+
+let lastGenerated = "";
+function load(key, newSeed) {
+  current = key;
+  if (newSeed) seed = newSeed;
+  lastGenerated = makeData(key, seed);
+  $("data").value = lastGenerated;
+  $("presetNote").textContent = PRESETS[key].note;
+  $("pre-coffee").classList.toggle("on", key === "coffee");
+  $("pre-phone").classList.toggle("on", key === "phone");
+  run();
+}
+PRESETS.coffee.extra = "In the coffee example, someone who sleeps badly may drink more coffee to get through the day, so the arrow could point the other way. Stress or exam weeks could also push both up. The data alone cannot tell these stories apart.";
+PRESETS.phone.extra = "In the phone example the two variables are independent by construction, so any rejection is a false alarm that the 5% error rate allows.";
+
+$("pre-coffee").onclick = () => load("coffee", 7);
+$("pre-phone").onclick = () => load("phone", 11);
+$("resample").onclick = () => load(current, Math.floor(Math.random() * 100000) + 1);
+$("go").onclick = run;
+$("alpha").onchange = run;
+
+$("code1").textContent = analyse.toString();
+$("code2").textContent = chiSquarePValue.toString();
+load("coffee", 7);
+</script>
+
+</body></html>
