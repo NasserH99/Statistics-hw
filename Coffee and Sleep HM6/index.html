@@ -1,5 +1,4 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Coffee and Sleep</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -81,6 +80,8 @@ textarea { width: 100%; height: 220px; font-family: var(--font-mono); font-size:
 label { font-size: 14px; color: var(--muted); }
 .hint { font-size: 13px; color: var(--muted); }
 .error { color: var(--bad); font-weight: 500; }
+.error:not(:empty) { background: var(--warn-bg); padding: 10px 12px; border-radius: 6px; }
+[hidden] { display: none !important; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
 .stat { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; min-width: 0; }
 .stat b { display: block; font-family: var(--font-head); font-size: 22px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
@@ -100,7 +101,7 @@ details summary { cursor: pointer; font-weight: 500; }
 @media (prefers-reduced-motion: no-preference) { button { transition: background 0.15s; } }
 </style>
 
-</head><body><main class="page">
+<main class="page">
   <header style="display:flex;flex-direction:column;gap:10px">
     <div class="eyebrow">Statistics 2026 · Homework 6</div>
     <h1>Coffee and Sleep</h1>
@@ -135,7 +136,7 @@ details summary { cursor: pointer; font-weight: 500; }
         <button id="resample">New random sample</button>
       </div>
       <p class="hint" id="presetNote"></p>
-      <label for="data">One pair per line. The first line holds the two variable names. You can paste your own data here.</label>
+      <label for="data">Dataset (X, F). First line: the two variable names. Then one observation per line. Any other bivariate dataset can be typed here instead.</label>
       <textarea id="data" spellcheck="false"></textarea>
       <div class="controls">
         <button class="primary" id="go">Analyze</button>
@@ -325,12 +326,16 @@ let current = "coffee", seed = 7;
 
 function parse(text) {
   const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  if (lines.length < 3) throw new Error("Need a header line and at least 2 data lines.");
-  const names = lines[0].split(",").map(s => s.trim());
-  if (names.length !== 2 || !names[0] || !names[1]) throw new Error('The first line should hold two names, like "x,f".');
+  if (lines.length < 3) throw new Error("Need a first line with the two variable names, then at least 2 data lines.");
+  // the first line decides the separator: comma, semicolon or tab (tab is what Excel gives when you copy cells)
+  const sep = [",", ";", "\t"].find(d => lines[0].includes(d));
+  if (!sep) throw new Error('The first line should hold the two variable names with a comma between them, like "coffee,sleep".');
+  const split = l => l.split(sep).map(s => s.trim());
+  const names = split(lines[0]);
+  if (names.length !== 2 || !names[0] || !names[1]) throw new Error('The first line should hold exactly two variable names, like "coffee,sleep".');
   const pairs = lines.slice(1).map((l, i) => {
-    const p = l.split(",").map(s => s.trim());
-    if (p.length !== 2 || !p[0] || !p[1]) throw new Error('Line ' + (i + 2) + ' should look like "x,f".');
+    const p = split(l);
+    if (p.length !== 2 || !p[0] || !p[1]) throw new Error('Line ' + (i + 2) + ' should hold two values separated by "' + (sep === "\t" ? "a tab" : sep) + '", like the first line.');
     return p;
   });
   return { names, pairs };
@@ -368,12 +373,12 @@ function run() {
     if (a.rows.length < 2 || a.cols.length < 2) throw new Error("Each variable needs at least 2 different values.");
     if (a.rows.length > 8 || a.cols.length > 8) throw new Error("Please use at most 8 values per variable.");
   } catch (e) {
-    err.textContent = e.message; $("results").hidden = true; return;
+    err.textContent = e.message; $("count").textContent = ""; $("results").style.display = "none"; return;
   }
-  $("results").hidden = false;
+  $("results").style.display = "flex";
   const X = names[0], F = names[1], alpha = parseFloat($("alpha").value);
   const { rows, cols, n, O, rowTot, colTot, margX, margF, condRow, condCol, E, contrib, chi2, df, p, V } = a;
-  $("count").textContent = n + " observations, " + rows.length + " × " + cols.length + " table";
+  $("count").textContent = "Read: " + X + " (rows), " + F + " (columns), " + n + " observations, " + rows.length + " × " + cols.length + " table";
   document.querySelectorAll(".nx").forEach(e => e.textContent = X);
   document.querySelectorAll(".nf").forEach(e => e.textContent = F);
 
@@ -448,6 +453,8 @@ $("pre-phone").onclick = () => load("phone", 11);
 $("resample").onclick = () => load(current, Math.floor(Math.random() * 100000) + 1);
 $("go").onclick = run;
 $("alpha").onchange = run;
+let typingTimer;
+$("data").addEventListener("input", () => { clearTimeout(typingTimer); typingTimer = setTimeout(run, 500); });
 
 $("code1").textContent = analyse.toString();
 $("code2").textContent = chiSquarePValue.toString();
